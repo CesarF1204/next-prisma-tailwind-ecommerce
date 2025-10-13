@@ -5,14 +5,32 @@ import prisma from '@/lib/prisma'
 import { isVariableValid } from '@/lib/utils'
 
 import {
-   AvailableToggle,
+   ProductSearch,
+   PriceRange,
    BrandCombobox,
    CategoriesCombobox,
    SortBy,
+   // AvailableToggle,
 } from './components/options'
 
 export default async function Products({ searchParams }) {
-   const { sort, isAvailable, brand, category, page = 1 } = searchParams ?? null
+   const { search, minPrice, maxPrice, sort, isAvailable, brand, category, page = 1 } = searchParams ?? null
+
+   const minimumPrice = parseFloat(minPrice);
+   const maximumPrice = parseFloat(maxPrice);
+
+   const minMaxPriceFilter = !isNaN(minimumPrice) && !isNaN(maximumPrice) 
+   ? { price: { gte: minimumPrice, lte: maximumPrice } } 
+   : {};
+
+   const filteredCategories = category ? 
+      category
+         .split('+')
+         .map((cat) => cat.trim())
+      : 
+      undefined
+
+   const isTitleSort = sort === "title_asc" || sort === "title_desc"
 
    const orderBy = getOrderBy(sort)
 
@@ -20,21 +38,52 @@ export default async function Products({ searchParams }) {
    const categories = await prisma.category.findMany()
    const products = await prisma.product.findMany({
       where: {
-         isAvailable: isAvailable == 'true' || sort ? true : undefined,
-         brand: {
-            title: {
-               contains: brand,
-               mode: 'insensitive',
+         AND: [
+            {
+               isAvailable: (isAvailable == 'true' || sort) && !isTitleSort ? true : undefined,
             },
-         },
-         categories: {
-            some: {
-               title: {
-                  contains: category,
-                  mode: 'insensitive',
+            {
+               OR: [
+                  {
+                     title: {
+                     contains: search,
+                     mode: 'insensitive',
+                     },
+                  },
+                  {
+                     description: {
+                     contains: search,
+                     mode: 'insensitive',
+                     },
+                  },
+               ],
+            },
+            {
+               ...(brand
+                  ? {
+                     brand: {
+                        title: {
+                           in: brand.split('+').map((b) => b.trim()),
+                           mode: 'insensitive',
+                        },
+                     },
+                  }
+                  : {}),
+            },
+            {
+               categories: {
+                  some: {
+                     title: {
+                        in: filteredCategories,
+                        mode: 'insensitive',
+                     },
+                  },
                },
             },
-         },
+            {
+               ...minMaxPriceFilter
+            }
+         ],
       },
       orderBy,
       skip: (page - 1) * 12,
@@ -43,7 +92,7 @@ export default async function Products({ searchParams }) {
          brand: true,
          categories: true,
       },
-   })
+      });
 
    return (
       <>
@@ -51,14 +100,17 @@ export default async function Products({ searchParams }) {
             title="Products"
             description="Below is a list of products you have in your cart."
          />
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-            <SortBy initialData={sort} />
+         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+            <ProductSearch initialSearch={search} />
+            <PriceRange />
+            {/* <PriceRange minLimit={minimumPrice} maxLimit={maximumPrice}/> */}
             <CategoriesCombobox
                initialCategory={category}
                categories={categories}
             />
             <BrandCombobox initialBrand={brand} brands={brands} />
-            <AvailableToggle initialData={isAvailable} />
+            <SortBy initialData={sort} />
+            {/* <AvailableToggle initialData={isAvailable} /> */}
          </div>
          <Separator />
          {isVariableValid(products) ? (
@@ -89,6 +141,16 @@ function getOrderBy(sort) {
       case 'least_expensive':
          orderBy = {
             price: 'asc',
+         }
+         break
+      case 'title_asc':
+         orderBy = {
+            title: 'asc',
+         }
+         break
+      case 'title_desc':
+         orderBy = {
+            title: 'desc',
          }
          break
 

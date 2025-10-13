@@ -7,8 +7,13 @@ import {
    CommandGroup,
    CommandInput,
    CommandItem,
+   CommandList,
 } from '@/components/ui/command'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import * as Slider from '@radix-ui/react-slider'
+import { useDebounce } from '@/hooks/useDebounce'
+
 import {
    Popover,
    PopoverContent,
@@ -26,14 +31,125 @@ import { cn, isVariableValid } from '@/lib/utils'
 import { slugify } from '@persepolis/slugify'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import React, { useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
+
+export function ProductSearch({ initialSearch = '' }: { initialSearch?: string }) {
+   const router = useRouter()
+   const pathname = usePathname()
+   const searchParams = useSearchParams()
+
+   const [searchTerm, setSearchTerm] = useState(initialSearch)
+   const debouncedSearch = useDebounce(searchTerm, 500)
+
+   useEffect(() => {
+      setSearchTerm(initialSearch)
+   }, [initialSearch])
+
+   useEffect(() => {
+      const current = new URLSearchParams(Array.from(searchParams.entries()))
+
+      if (debouncedSearch.trim()) {
+         current.set('search', debouncedSearch.trim())
+      } else {
+         current.delete('search')
+      }
+
+      const query = current.toString()
+      router.replace(`${pathname}${query ? `?${query}` : ''}`, {
+         scroll: false,
+      })
+   }, [debouncedSearch, pathname, router, searchParams])
+
+   return (
+      <form className="w-full" onSubmit={(e) => e.preventDefault()}>
+         <Input
+         type="text"
+         placeholder="Search products..."
+         value={searchTerm}
+         onChange={(e) => setSearchTerm(e.target.value)}
+         className="w-full"
+         />
+      </form>
+   )
+}
+
+
+export function PriceRange({
+   initialMin = 0,
+   initialMax = 1000,
+   minPrice = 0,
+   maxPrice = 1000,
+   step = 10,
+}: {
+   initialMin?: number
+   initialMax?: number
+   minPrice?: number
+   maxPrice?: number
+   step?: number
+}) {
+   const router = useRouter()
+   const pathname = usePathname()
+   const searchParams = useSearchParams()
+
+   const [range, setRange] = React.useState<[number, number]>([
+      initialMin,
+      initialMax,
+   ])
+
+   React.useEffect(() => {
+      setRange([initialMin, initialMax])
+   }, [initialMin, initialMax])
+
+   const handleCommit = (values: number[]) => {
+      const [min, max] = values
+      const current = new URLSearchParams(Array.from(searchParams.entries()))
+
+      current.set('minPrice', min.toString())
+      current.set('maxPrice', max.toString())
+
+      const query = current.toString()
+      router.replace(`${pathname}${query ? `?${query}` : ''}`, {
+         scroll: false,
+      })
+   }
+
+   return (
+      <div className="space-y-2 w-full">
+         <div className="flex justify-between text-xs text-muted-foreground">
+            <span>${range[0]}</span>
+            <span>${range[1]}</span>
+         </div>
+
+         <Slider.Root
+            className="relative flex w-full touch-none select-none items-center"
+            min={minPrice}
+            max={maxPrice}
+            step={step}
+            value={range}
+            onValueChange={(val) => setRange(val as [number, number])}
+            onValueCommit={(val) => handleCommit(val as [number, number])}
+            minStepsBetweenThumbs={1}
+            >
+            <Slider.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+               <Slider.Range className="absolute h-full bg-blue-500" />
+            </Slider.Track>
+            {range.map((_, i) => (
+               <Slider.Thumb
+                  key={i}
+                  className="block h-4 w-4 rounded-full bg-white border-2 border-blue-500 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+               />
+            ))}
+         </Slider.Root>
+      </div>
+   )
+}
 
 export function SortBy({ initialData }) {
    const router = useRouter()
    const pathname = usePathname()
    const searchParams = useSearchParams()
 
-   const [value, setValue] = React.useState('featured')
+   const [value, setValue] = useState('featured')
 
    useEffect(() => {
       if (isVariableValid(initialData)) setValue(initialData)
@@ -71,110 +187,172 @@ export function SortBy({ initialData }) {
             <SelectItem value="featured">Featured</SelectItem>
             <SelectItem value="most_expensive">Most Expensive</SelectItem>
             <SelectItem value="least_expensive">Least Expensive</SelectItem>
+            <SelectItem value="title_asc">Title (A-Z)</SelectItem>
+            <SelectItem value="title_desc">Title (Z-A)</SelectItem>
          </SelectContent>
       </Select>
    )
 }
 
-export function CategoriesCombobox({ categories, initialCategory }) {
+interface CategoriesComboboxProps {
+   readonly categories: { title: string }[],
+   readonly initialCategory?: string
+}
+
+export function CategoriesCombobox({ categories, initialCategory }: CategoriesComboboxProps) {
    const router = useRouter()
    const pathname = usePathname()
    const searchParams = useSearchParams()
 
-   const [open, setOpen] = React.useState(false)
-   const [value, setValue] = React.useState('')
-
-   function getCategoryTitle() {
-      for (const category of categories) {
-         if (slugify(category.title) === slugify(value)) return category.title
-      }
-   }
+   const [open, setOpen] = useState(false)
+   const [selected, setSelected] = useState<string[]>([])
 
    useEffect(() => {
-      setValue(initialCategory)
+      if (!initialCategory) return
+
+      const initialSlugs = initialCategory
+         .split("+")
+         .map((slug) => slug.trim())
+         .filter(Boolean)
+      setSelected(initialSlugs)
    }, [initialCategory])
+
+   const updateUrlParams = (selectedCategories: string[]) => {
+      const params = new URLSearchParams(Array.from(searchParams.entries()))
+
+      if (selectedCategories.length === 0) {
+         params.delete("category")
+      } else {
+         params.set("category", selectedCategories.join("+"))
+      }
+
+      const queryString = params.toString()
+      const url = queryString ? `${pathname}?${queryString}` : pathname
+
+      router.replace(url, { scroll: false })
+   }
+
+   const toggleSelection = (slug: string) => {
+      const newSelection = selected.includes(slug)
+         ? selected.filter((s) => s !== slug)
+         : [...selected, slug]
+
+      setSelected(newSelection)
+      updateUrlParams(newSelection)
+   }
+
+   const getDisplayedTitle = (): string => {
+      const matchedTitles = categories
+         .filter((cat) => selected.includes(slugify(cat.title)))
+         .map((cat) => cat.title)
+
+      if (matchedTitles.length > 2) {
+         const [first, second, ...rest] = matchedTitles
+         return `${first}, ${second}, +${rest.length} other${rest.length > 1 ? "s" : ""}`
+      }
+
+      return matchedTitles.join(", ")
+   }
 
    return (
       <Popover open={open} onOpenChange={setOpen}>
          <PopoverTrigger asChild>
-            <Button
-               variant="outline"
-               role="combobox"
-               aria-expanded={open}
-               className="w-full justify-between"
-            >
-               {value ? getCategoryTitle() : 'Select category...'}
-               <ChevronsUpDown className="ml-2 h-4 shrink-0 opacity-50" />
-            </Button>
+         <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="justify-between w-full"
+         >
+            {selected.length > 0 ? getDisplayedTitle() : "Select categories..."}
+            <ChevronsUpDown className="h-4 ml-2 opacity-50 shrink-0" />
+         </Button>
          </PopoverTrigger>
+
          <PopoverContent className="w-full p-0">
-            <Command>
-               <CommandInput placeholder="Search category..." />
+         <Command>
+            <CommandInput placeholder="Search categories..." />
+            <CommandList>
                <CommandEmpty>No category found.</CommandEmpty>
                <CommandGroup>
-                  {categories.map((category) => (
+               {categories.map(({ title }) => {
+                  const slug = slugify(title)
+                  const isSelected = selected.includes(slug)
+
+                  return (
                      <CommandItem
-                        key={category.title}
-                        onSelect={(currentValue) => {
-                           const current = new URLSearchParams(
-                              Array.from(searchParams.entries())
-                           )
-
-                           if (currentValue === value) {
-                              current.delete('category')
-                              setValue('')
-                           } else {
-                              current.set('category', currentValue)
-                              setValue(currentValue)
-                           }
-
-                           // cast to string
-                           const search = current.toString()
-                           // or const query = `${'?'.repeat(search.length && 1)}${search}`;
-                           const query = search ? `?${search}` : ''
-
-                           router.replace(`${pathname}${query}`, {
-                              scroll: false,
-                           })
-
-                           setOpen(false)
-                        }}
+                        key={title}
+                        value={slug}
+                        onSelect={toggleSelection}
                      >
-                        <Check
-                           className={cn(
-                              'mr-2 h-4 w-4',
-                              value === category.title
-                                 ? 'opacity-100'
-                                 : 'opacity-0'
-                           )}
-                        />
-                        {category.title}
+                     <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                        {title}
                      </CommandItem>
-                  ))}
+                  )
+               })}
                </CommandGroup>
-            </Command>
+            </CommandList>
+         </Command>
          </PopoverContent>
       </Popover>
    )
 }
+
 
 export function BrandCombobox({ brands, initialBrand }) {
    const router = useRouter()
    const pathname = usePathname()
    const searchParams = useSearchParams()
 
-   const [open, setOpen] = React.useState(false)
-   const [value, setValue] = React.useState('')
-
-   function getBrandTitle() {
-      for (const brand of brands) {
-         if (slugify(brand.title) === slugify(value)) return brand.title
-      }
-   }
+   const [open, setOpen] = useState(false)
+   const [selected, setSelected] = useState<string[]>([])
 
    useEffect(() => {
-      setValue(initialBrand)
+      if (!initialBrand) return
+
+      const initialSlugs = initialBrand
+         .split("+")
+         .map((slug) => slug.trim())
+         .filter(Boolean)
+
+      setSelected(initialSlugs)
    }, [initialBrand])
+
+   const updateUrlParams = (selectedBrands: string[]) => {
+      const params = new URLSearchParams(Array.from(searchParams.entries()))
+
+      if (selectedBrands.length === 0) {
+         params.delete("brand")
+      } else {
+         params.set("brand", selectedBrands.join("+"))
+      }
+
+      const queryString = params.toString()
+      const url = queryString ? `${pathname}?${queryString}` : pathname
+
+      router.replace(url, { scroll: false })
+   }
+
+   const toggleSelection = (slug: string) => {
+      const newSelection = selected.includes(slug)
+         ? selected.filter((s) => s !== slug)
+         : [...selected, slug]
+
+      setSelected(newSelection)
+      updateUrlParams(newSelection)
+   }
+
+   const getDisplayedTitle = (): string => {
+      const matchedTitles = brands
+         .filter((b) => selected.includes(slugify(b.title)))
+         .map((b) => b.title)
+
+      if (matchedTitles.length > 2) {
+         const [first, second, ...rest] = matchedTitles
+         return `${first}, ${second}, +${rest.length} other${rest.length > 1 ? "s" : ""}`
+      }
+
+      return matchedTitles.join(", ")
+   }
 
    return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -185,55 +363,35 @@ export function BrandCombobox({ brands, initialBrand }) {
                aria-expanded={open}
                className="w-full justify-between"
             >
-               {value ? getBrandTitle() : 'Select brand...'}
+               {selected.length > 0 ? getDisplayedTitle() : "Select brand..."}
                <ChevronsUpDown className="ml-2 h-4 shrink-0 opacity-50" />
             </Button>
          </PopoverTrigger>
+
          <PopoverContent className="w-full p-0">
             <Command>
                <CommandInput placeholder="Search brand..." />
-               <CommandEmpty>No brand found.</CommandEmpty>
-               <CommandGroup>
-                  {brands.map((brand) => (
-                     <CommandItem
-                        key={brand.title}
-                        onSelect={(currentValue) => {
-                           const current = new URLSearchParams(
-                              Array.from(searchParams.entries())
-                           )
+               <CommandList>
+                  <CommandEmpty>No brand found.</CommandEmpty>
+                  <CommandGroup>
+                     {brands.map(({ title }) => {
+                        const slug = slugify(title)
+                        const isSelected = selected.includes(slug)
 
-                           if (currentValue === value) {
-                              current.delete('brand')
-                              setValue('')
-                           } else {
-                              current.set('brand', currentValue)
-                              setValue(currentValue)
-                           }
-
-                           // cast to string
-                           const search = current.toString()
-                           // or const query = `${'?'.repeat(search.length && 1)}${search}`;
-                           const query = search ? `?${search}` : ''
-
-                           router.replace(`${pathname}${query}`, {
-                              scroll: false,
-                           })
-
-                           setOpen(false)
-                        }}
-                     >
-                        <Check
-                           className={cn(
-                              'mr-2 h-4',
-                              value === brand.title
-                                 ? 'opacity-100'
-                                 : 'opacity-0'
-                           )}
-                        />
-                        {brand.title}
-                     </CommandItem>
-                  ))}
-               </CommandGroup>
+                        return (
+                           <CommandItem key={slug} value={slug} onSelect={() => toggleSelection(slug)}>
+                              <Check
+                                 className={cn(
+                                    "mr-2 h-4 w-4",
+                                    isSelected ? "opacity-100" : "opacity-0"
+                                 )}
+                              />
+                              {title}
+                           </CommandItem>
+                        )
+                     })}
+                  </CommandGroup>
+               </CommandList>
             </Command>
          </PopoverContent>
       </Popover>
@@ -244,7 +402,7 @@ export function AvailableToggle({ initialData }) {
    const router = useRouter()
    const pathname = usePathname()
    const searchParams = useSearchParams()
-   const [value, setValue] = React.useState(false)
+   const [value, setValue] = useState(false)
 
    useEffect(() => {
       setValue(initialData === 'true' ? true : false)
