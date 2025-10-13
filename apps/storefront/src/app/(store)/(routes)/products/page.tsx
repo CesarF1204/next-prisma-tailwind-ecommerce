@@ -92,7 +92,7 @@ export default async function Products({ searchParams }) {
          brand: true,
          categories: true,
       },
-      });
+   });
 
    return (
       <>

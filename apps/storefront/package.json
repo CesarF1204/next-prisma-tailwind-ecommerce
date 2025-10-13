@@ -19,6 +19,9 @@
       "db:seed": "npx prisma db seed",
       "db:studio": "npx prisma studio"
    },
+   "prisma": {
+      "seed": "ts-node prisma/seed.ts"
+   },
    "dependencies": {
       "@hookform/resolvers": "^3.9.0",
       "@persepolis/mail": "^1.0.9",

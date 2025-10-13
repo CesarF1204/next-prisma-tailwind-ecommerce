@@ -6,6 +6,8 @@ import type { Metadata, ResolvingMetadata } from 'next'
 import Link from 'next/link'
 
 import { DataSection } from './components/data'
+import { Separator } from '@/components/native/separator'
+import { CrossSellProducts } from './components/cross_sell_product'
 
 type Props = {
    params: { productId: string }
@@ -44,6 +46,7 @@ export default async function Product({
       include: {
          brand: true,
          categories: true,
+         crossSellOf: true,
       },
    })
 
@@ -55,6 +58,15 @@ export default async function Product({
                <ImageColumn product={product} />
                <DataSection product={product} />
             </div>
+            {product.crossSellOf?.length > 0 && (
+               <>
+                  <Separator />
+                  <div>
+                     <h2 className="mb-4 text-xl font-bold tracking-tight">Related Products:</h2>
+                     <CrossSellProducts products={product.crossSellOf} />
+                  </div>
+               </>
+            )}
          </>
       )
    }
@@ -62,7 +74,7 @@ export default async function Product({
 
 const ImageColumn = ({ product }) => {
    return (
-      <div className="relative min-h-[50vh] w-full col-span-1">
+      <div className="relative w-full col-span-1">
          <Carousel images={product?.images} />
       </div>
    )
