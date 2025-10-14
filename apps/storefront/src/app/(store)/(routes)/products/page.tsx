@@ -20,18 +20,18 @@ export default async function Products({ searchParams }) {
    const maximumPrice = parseFloat(maxPrice);
 
    const minMaxPriceFilter = !isNaN(minimumPrice) && !isNaN(maximumPrice) 
-   ? { price: { gte: minimumPrice, lte: maximumPrice } } 
+   ? { price: { gte: minimumPrice, lte: maximumPrice }, isAvailable: true } 
    : {};
 
-   const filteredCategories = category ? 
-      category
-         .split('+')
-         .map((cat) => cat.trim())
-      : 
-      undefined
+   function filteredData (filter) {
+      return filter
+         ? filter.split('+').map((cat) => cat.trim())
+         : undefined;
+   }
 
+   const categoriesArray = filteredData(category);
+   const brandsArray = filteredData(brand);
    const isTitleSort = sort === "title_asc" || sort === "title_desc"
-
    const orderBy = getOrderBy(sort)
 
    const brands = await prisma.brand.findMany()
@@ -63,7 +63,7 @@ export default async function Products({ searchParams }) {
                   ? {
                      brand: {
                         title: {
-                           in: brand.split('+').map((b) => b.trim()),
+                           in: brandsArray,
                            mode: 'insensitive',
                         },
                      },
@@ -74,7 +74,7 @@ export default async function Products({ searchParams }) {
                categories: {
                   some: {
                      title: {
-                        in: filteredCategories,
+                        in: categoriesArray,
                         mode: 'insensitive',
                      },
                   },
@@ -103,7 +103,6 @@ export default async function Products({ searchParams }) {
          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
             <ProductSearch initialSearch={search} />
             <PriceRange />
-            {/* <PriceRange minLimit={minimumPrice} maxLimit={maximumPrice}/> */}
             <CategoriesCombobox
                initialCategory={category}
                categories={categories}

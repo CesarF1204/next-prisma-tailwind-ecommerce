@@ -130,6 +130,7 @@ export const Item = ({ cartItem }) => {
 
             const json = await response.json()
             dispatchCart(json)
+            window.dispatchEvent(new Event('cartUpdated'))
          }
 
          const localCart = getLocalCart() as any

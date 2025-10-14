@@ -62,7 +62,7 @@ export default async function Product({
                <>
                   <Separator />
                   <div>
-                     <h2 className="mb-4 text-xl font-bold tracking-tight">Related Products:</h2>
+                     <h2 className="mb-4 text-xl font-medium tracking-tight">Related Products:</h2>
                      <CrossSellProducts products={product.crossSellOf} />
                   </div>
                </>

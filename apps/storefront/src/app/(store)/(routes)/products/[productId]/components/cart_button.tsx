@@ -61,6 +61,7 @@ export function ButtonComponent({ product }) {
             const json = await response.json()
 
             dispatchCart(json)
+            window.dispatchEvent(new Event('cartUpdated'))
          }
 
          const localCart = getLocalCart() as any
@@ -122,6 +123,7 @@ export function ButtonComponent({ product }) {
             const json = await response.json()
 
             dispatchCart(json)
+            window.dispatchEvent(new Event('cartUpdated'))
          }
 
          const localCart = getLocalCart() as any

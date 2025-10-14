@@ -73,7 +73,6 @@ export function ProductSearch({ initialSearch = '' }: { initialSearch?: string }
    )
 }
 
-
 export function PriceRange({
    initialMin = 0,
    initialMax = 1000,
@@ -114,7 +113,7 @@ export function PriceRange({
    }
 
    return (
-      <div className="space-y-2 w-full">
+      <div className="space-y-2 px-4 w-full">
          <div className="flex justify-between text-xs text-muted-foreground">
             <span>${range[0]}</span>
             <span>${range[1]}</span>
@@ -296,7 +295,6 @@ export function CategoriesCombobox({ categories, initialCategory }: CategoriesCo
       </Popover>
    )
 }
-
 
 export function BrandCombobox({ brands, initialBrand }) {
    const router = useRouter()
