@@ -7,7 +7,6 @@ import { Heading } from "@/components/ui/heading"
 import { Separator } from "@/components/ui/separator"
 
 import { BrandCombobox, CategoriesCombobox, DateRangePicker } from "./components/options"
-
 import { OrdersOverviewChart } from "./components/overview-chart"
 import { ProductsTable, ProductColumn } from "./components/table"
 
@@ -21,115 +20,127 @@ export default async function AdminReportsPage({ searchParams }) {
     const brands = await prisma.brand.findMany()
     const categories = await prisma.category.findMany()
 
-    // Orders Report Chart
     const whereClause: any = {}
 
-    // Apply filters only if provided
     if (startDate && endDate) {
         whereClause.createdAt = {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
+        gte: new Date(startDate),
+        lte: new Date(endDate),
         }
     }
 
-    // Fetch grouped orders
+    // Group orders by createdAt (day)
     const orders = await prisma.order.groupBy({
-    by: ["createdAt"],
+        by: ["createdAt"],
         _count: { id: true },
         _sum: { total: true },
         where: whereClause,
     })
 
-    // Group and summarize orders by date
+    // Summarize orders by date
     const groupedOrders: Record<string, { count: number; total: number }> = {}
 
     orders.forEach((o) => {
-    const date = format(o.createdAt, "yyyy-MM-dd")
-    groupedOrders[date] = {
+        const date = format(o.createdAt, "yyyy-MM-dd")
+        groupedOrders[date] = {
         count: (groupedOrders[date]?.count ?? 0) + o._count.id,
         total: (groupedOrders[date]?.total ?? 0) + (o._sum.total ?? 0),
-    }
+        }
     })
 
-    // Determine date range dynamically
+    // Determine chart date range
     let allDates: Date[] = []
 
     if (startDate && endDate) {
-        // Use filter range
         allDates = eachDayOfInterval({
-            start: new Date(startDate),
-            end: new Date(endDate),
+        start: new Date(startDate),
+        end: new Date(endDate),
         })
     } else if (orders.length > 0) {
-        // Use full order range (oldest to newest)
         const minDate = min(orders.map((o) => o.createdAt))
         const maxDate = max(orders.map((o) => o.createdAt))
         allDates = eachDayOfInterval({ start: minDate, end: maxDate })
-        } else {
-        // Fallback: show empty chart (no orders at all)
+    } else {
         allDates = [new Date()]
     }
 
-    // Build final chart data
     const chartData = allDates.map((d) => {
-    const date = format(d, "yyyy-MM-dd")
-    return {
+        const date = format(d, "yyyy-MM-dd")
+
+        return {
         date,
         orderCount: groupedOrders[date]?.count ?? 0,
         orderTotal: groupedOrders[date]?.total ?? 0,
-    }
+        }
     })
+
+    // Total Orders and Total Sales (date range aware)
+    const totalSummary = await prisma.order.aggregate({
+        _count: { id: true },
+        _sum: { total: true },
+        where: {
+        ...(startDate &&
+            endDate && {
+            createdAt: {
+                gte: new Date(startDate),
+                lte: new Date(endDate),
+            },
+            }),
+        },
+    })
+
+    const totalOrders = totalSummary._count.id || 0
+    const totalSales = totalSummary._sum.total || 0
 
     // Query to get the products order by most top sales
     const products = await prisma.product.findMany({
         select: {
-            id: true,
-            title: true,
-            price: true,
-            discount: true,
-            isAvailable: true,
-            categories: { select: { title: true } },
-            orders: {
+        id: true,
+        title: true,
+        price: true,
+        discount: true,
+        isAvailable: true,
+        categories: { select: { title: true } },
+        orders: {
             select: {
-                order: {
+            order: {
                 select: { createdAt: true },
-                },
+            },
             },
             where: {
-                order: {
+            order: {
                 ...(startDate &&
-                    endDate && {
+                endDate && {
                     createdAt: {
-                        gte: new Date(startDate),
-                        lte: new Date(endDate),
+                    gte: new Date(startDate),
+                    lte: new Date(endDate),
                     },
-                    }),
-                },
+                }),
             },
             },
-            brand: { select: { title: true } },
+        },
         },
         where: {
-            ...(brand && {
+        ...(brand && {
             brand: {
-                title: {
+            title: {
                 in: brand.split("+").map((b) => b.trim()),
                 mode: "insensitive",
-                },
             },
-            }),
-            ...(filteredCategories && filteredCategories.length > 0 && {
+            },
+        }),
+        ...(filteredCategories && filteredCategories.length > 0 && {
             categories: {
-                some: {
+            some: {
                 title: { in: filteredCategories, mode: "insensitive" },
-                },
             },
-            }),
+            },
+        }),
         },
         orderBy: {
-            orders: {
+        orders: {
             _count: "desc",
-            },
+        },
         },
     })
 
@@ -145,41 +156,71 @@ export default async function AdminReportsPage({ searchParams }) {
 
     return (
         <div className="my-6 space-y-6">
-        <Heading title="Reports Overview" description="Sales and order insights" />
+        <Heading title="Reports Overview" description="Order and Sales Dashboard" />
         <Separator />
+            {/* SUMMARY CARDS */}
+            <div className="grid grid-cols-2 gap-4">
+                <Card>
+                <CardHeader>
+                    <CardTitle>Total Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold">{totalOrders}</p>
+                    <p className="text-sm text-muted-foreground">
+                    {startDate && endDate
+                        ? `From ${format(new Date(startDate), "MMM dd, yyyy")} to ${format(
+                            new Date(endDate),
+                            "MMM dd, yyyy"
+                        )}`
+                        : "All time"}
+                    </p>
+                </CardContent>
+                </Card>
 
-        {/* FILTER OPTIONS */}
-        <div className="grid gap-4 grid-cols-3">
-            <DateRangePicker
-                initialStartDate={startDate}
-                initialEndDate={endDate}
-            />
-            <CategoriesCombobox
-                initialCategory={category}
-                categories={categories}
-            />
-            <BrandCombobox initialBrand={brand} brands={brands} />
-        </div>
+                <Card>
+                <CardHeader>
+                    <CardTitle>Total Sales</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold">{formatter.format(totalSales)}</p>
+                    <p className="text-sm text-muted-foreground">
+                    {startDate && endDate
+                        ? `From ${format(new Date(startDate), "MMM dd, yyyy")} to ${format(
+                            new Date(endDate),
+                            "MMM dd, yyyy"
+                        )}`
+                        : "All time"}
+                    </p>
+                </CardContent>
+                </Card>
+            </div>
 
-        {/* CHART SECTION */}
-        <Card className="col-span-4">
-            <CardHeader>
-            <CardTitle>Orders Overview</CardTitle>
-            </CardHeader>
-            <CardContent className="pl-2">
-            <OrdersOverviewChart data={chartData} />
-            </CardContent>
-        </Card>
+            {/* FILTER OPTIONS */}
+            <div className="grid gap-4 grid-cols-3">
+                <DateRangePicker initialStartDate={startDate} initialEndDate={endDate} />
+                <CategoriesCombobox initialCategory={category} categories={categories} />
+                <BrandCombobox initialBrand={brand} brands={brands} />
+            </div>
 
-        {/* TABLE SECTION */}
-        <Card className="col-span-4">
-            <CardHeader>
-            <CardTitle>Top Selling Products</CardTitle>
-            </CardHeader>
-            <CardContent className="pl-2">
-            <ProductsTable data={topSellingProducts} />
-            </CardContent>
-        </Card>
+            {/* CHART SECTION */}
+            <Card className="col-span-4">
+                <CardHeader>
+                <CardTitle>Orders Overview</CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2">
+                <OrdersOverviewChart data={chartData} />
+                </CardContent>
+            </Card>
+
+            {/* TABLE SECTION */}
+            <Card className="col-span-4">
+                <CardHeader>
+                    <CardTitle>Top Selling Products</CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2">
+                    <ProductsTable data={topSellingProducts} />
+                </CardContent>
+            </Card>
         </div>
     )
 }

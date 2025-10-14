@@ -51,47 +51,64 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
         const params = new URLSearchParams(searchParams)
         if (newRange.from && newRange.to) {
-        params.set("startDate", newRange.from.toISOString())
-        params.set("endDate", newRange.to.toISOString())
+            params.set("startDate", newRange.from.toISOString())
+            params.set("endDate", newRange.to.toISOString())
         } else {
-        params.delete("startDate")
-        params.delete("endDate")
+            params.delete("startDate")
+            params.delete("endDate")
         }
 
         router.push(`?${params.toString()}`)
     }
 
+    const handleReset = () => {
+        setRange({ from: undefined, to: undefined })
+        const params = new URLSearchParams(searchParams)
+        params.delete("startDate")
+        params.delete("endDate")
+        router.push(`?${params.toString()}`)
+    }
+
     return (
         <Popover>
-        <PopoverTrigger asChild>
-            <Button
-            variant="outline"
-            className="w-full justify-start text-left font-normal"
-            >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {range?.from ? (
-                range?.to ? (
-                <>
-                    {format(range.from, "MMM dd, yyyy")} -{" "}
-                    {format(range.to, "MMM dd, yyyy")}
-                </>
-                ) : (
-                format(range.from, "MMM dd, yyyy")
-                )
-            ) : (
-                <span>Pick a date range</span>
-            )}
-            </Button>
-        </PopoverTrigger>
-
-        <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-            mode="range"
-            selected={range}
-            onSelect={handleDateChange}
-            numberOfMonths={1} // 👈 show only one calendar
-            />
-        </PopoverContent>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {range?.from ? (
+                        range?.to ? (
+                            <>
+                                {format(range.from, "MMM dd, yyyy")} -{" "}
+                                {format(range.to, "MMM dd, yyyy")}
+                            </>
+                        ) : (
+                            format(range.from, "MMM dd, yyyy")
+                        )
+                    ) : (
+                        <span>Pick a date range</span>
+                    )}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-3 space-y-3" align="start">
+                <Calendar
+                    mode="range"
+                    selected={range}
+                    onSelect={handleDateChange}
+                    numberOfMonths={1}
+                />
+                {range?.from || range?.to ? (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-muted-foreground hover:text-foreground"
+                        onClick={handleReset}
+                    >
+                        Reset Date Range
+                    </Button>
+                ) : null}
+            </PopoverContent>
         </Popover>
     )
 }
