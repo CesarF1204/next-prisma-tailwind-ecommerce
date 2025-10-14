@@ -13,9 +13,14 @@ import { ProductsTable, ProductColumn } from "./components/table"
 export default async function AdminReportsPage({ searchParams }) {
     const { startDate, endDate, brand, category } = searchParams ?? {}
 
-    const filteredCategories = category
-        ? category.split("+").map((c) => c.trim())
-        : undefined
+    function filteredData (filter) {
+        return filter
+            ? filter.split('+').map((cat) => cat.trim())
+            : undefined;
+    }
+
+    const categoriesArray = filteredData(category);
+    const brandsArray = filteredData(brand);
 
     const brands = await prisma.brand.findMany()
     const categories = await prisma.category.findMany()
@@ -103,44 +108,44 @@ export default async function AdminReportsPage({ searchParams }) {
         categories: { select: { title: true } },
         orders: {
             select: {
-            order: {
-                select: { createdAt: true },
-            },
+                order: {
+                    select: { createdAt: true },
+                },
             },
             where: {
-            order: {
-                ...(startDate &&
-                endDate && {
-                    createdAt: {
-                    gte: new Date(startDate),
-                    lte: new Date(endDate),
-                    },
-                }),
-            },
+                order: {
+                    ...(startDate &&
+                    endDate && {
+                        createdAt: {
+                        gte: new Date(startDate),
+                        lte: new Date(endDate),
+                        },
+                    }),
+                },
             },
         },
         },
         where: {
         ...(brand && {
-            brand: {
-            title: {
-                in: brand.split("+").map((b) => b.trim()),
-                mode: "insensitive",
-            },
-            },
+                brand: {
+                    title: {
+                        in: brandsArray,
+                        mode: "insensitive",
+                    },
+                },
         }),
-        ...(filteredCategories && filteredCategories.length > 0 && {
-            categories: {
-            some: {
-                title: { in: filteredCategories, mode: "insensitive" },
-            },
-            },
-        }),
+        ...(categoriesArray && categoriesArray.length > 0 && {
+                categories: {
+                    some: {
+                        title: { in: categoriesArray, mode: "insensitive" },
+                    },
+                },
+            }),
         },
         orderBy: {
-        orders: {
-            _count: "desc",
-        },
+            orders: {
+                _count: "desc",
+            },
         },
     })
 
