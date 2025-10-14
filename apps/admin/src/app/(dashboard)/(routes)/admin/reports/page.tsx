@@ -1,6 +1,7 @@
 import { eachDayOfInterval, format, min, max } from "date-fns"
 import prisma from "@/lib/prisma"
 import { formatter } from "@/lib/utils"
+import { slugify } from '@persepolis/slugify'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Heading } from "@/components/ui/heading"
@@ -23,23 +24,60 @@ export default async function AdminReportsPage({ searchParams }) {
     const brandsArray = filteredData(brand);
 
     const brands = await prisma.brand.findMany()
+
+    const brandIdsArray = [];
+    for (const brand of brands) {
+        if (brandsArray?.includes(slugify(brand.title))) {
+            brandIdsArray.push(brand.id);
+        }
+    }
+
     const categories = await prisma.category.findMany()
 
     const whereClause: any = {}
 
     if (startDate && endDate) {
         whereClause.createdAt = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+            gte: new Date(startDate),
+            lte: new Date(endDate),
         }
     }
 
-    // Group orders by createdAt (day)
+    // Group orders by createdAt (day) including brand and category
     const orders = await prisma.order.groupBy({
         by: ["createdAt"],
         _count: { id: true },
         _sum: { total: true },
-        where: whereClause,
+        where: {
+            ...(startDate &&
+            endDate && {
+                createdAt: {
+                    gte: new Date(startDate),
+                    lte: new Date(endDate),
+                },
+            }),
+            // Include filters for brand and category (through orderItems -> product)
+            ...(brand || (categoriesArray && categoriesArray.length > 0)
+            ? {
+                orderItems: {
+                    some: {
+                    product: {
+                        ...(brandIdsArray?.length > 0 && {
+                            brandId: { in: brandIdsArray },
+                        }),
+                        ...(categoriesArray && categoriesArray.length > 0 && {
+                            categories: {
+                                some: {
+                                    title: { in: categoriesArray, mode: "insensitive" },
+                                },
+                            },
+                        }),
+                    },
+                    },
+                },
+                }
+            : {}),
+        },
     })
 
     // Summarize orders by date
@@ -47,9 +85,9 @@ export default async function AdminReportsPage({ searchParams }) {
 
     orders.forEach((o) => {
         const date = format(o.createdAt, "yyyy-MM-dd")
-        groupedOrders[date] = {
-        count: (groupedOrders[date]?.count ?? 0) + o._count.id,
-        total: (groupedOrders[date]?.total ?? 0) + (o._sum.total ?? 0),
+            groupedOrders[date] = {
+            count: (groupedOrders[date]?.count ?? 0) + o._count.id,
+            total: (groupedOrders[date]?.total ?? 0) + (o._sum.total ?? 0),
         }
     })
 
@@ -73,26 +111,47 @@ export default async function AdminReportsPage({ searchParams }) {
         const date = format(d, "yyyy-MM-dd")
 
         return {
-        date,
-        orderCount: groupedOrders[date]?.count ?? 0,
-        orderTotal: groupedOrders[date]?.total ?? 0,
+            date,
+            orderCount: groupedOrders[date]?.count ?? 0,
+            orderTotal: groupedOrders[date]?.total ?? 0,
         }
     })
 
     // Total Orders and Total Sales (date range aware)
     const totalSummary = await prisma.order.aggregate({
-        _count: { id: true },
-        _sum: { total: true },
-        where: {
+    _count: { id: true },
+    _sum: { total: true },
+    where: {
         ...(startDate &&
-            endDate && {
+        endDate && {
             createdAt: {
                 gte: new Date(startDate),
                 lte: new Date(endDate),
             },
-            }),
-        },
-    })
+        }),
+        // Filter orders by products’ brand and categories through order items
+        ...(brand || (categoriesArray && categoriesArray.length > 0)
+        ? {
+            orderItems: {
+                some: {
+                product: {
+                    ...(brandIdsArray?.length > 0 && {
+                        brandId: { in: brandIdsArray },
+                    }),
+                    ...(categoriesArray && categoriesArray.length > 0 && {
+                    categories: {
+                        some: {
+                        title: { in: categoriesArray, mode: "insensitive" },
+                        },
+                    },
+                    }),
+                },
+                },
+            },
+            }
+        : {}),
+    },
+})
 
     const totalOrders = totalSummary._count.id || 0
     const totalSales = totalSummary._sum.total || 0
@@ -100,54 +159,49 @@ export default async function AdminReportsPage({ searchParams }) {
     // Query to get the products order by most top sales
     const products = await prisma.product.findMany({
         select: {
-        id: true,
-        title: true,
-        price: true,
-        discount: true,
-        isAvailable: true,
-        categories: { select: { title: true } },
-        orders: {
+            id: true,
+            title: true,
+            price: true,
+            discount: true,
+            isAvailable: true,
+            categories: { select: { title: true } },
+            orders: {
             select: {
                 order: {
-                    select: { createdAt: true },
+                select: { createdAt: true },
                 },
             },
             where: {
                 order: {
-                    ...(startDate &&
+                ...(startDate &&
                     endDate && {
-                        createdAt: {
+                    createdAt: {
                         gte: new Date(startDate),
                         lte: new Date(endDate),
-                        },
+                    },
                     }),
                 },
             },
-        },
+            },
         },
         where: {
-        ...(brand && {
-                brand: {
-                    title: {
-                        in: brandsArray,
-                        mode: "insensitive",
-                    },
+            ...(brandIdsArray?.length > 0 && {
+                brandId: { in: brandIdsArray },
+            }),
+            ...(categoriesArray && categoriesArray.length > 0 && {
+            categories: {
+                some: {
+                    title: { in: categoriesArray, mode: "insensitive" },
                 },
-        }),
-        ...(categoriesArray && categoriesArray.length > 0 && {
-                categories: {
-                    some: {
-                        title: { in: categoriesArray, mode: "insensitive" },
-                    },
-                },
+            },
             }),
         },
         orderBy: {
             orders: {
-                _count: "desc",
+            _count: "desc",
             },
         },
-    })
+    });
 
     const topSellingProducts: ProductColumn[] = products.map((p) => ({
         id: p.id,
@@ -210,10 +264,10 @@ export default async function AdminReportsPage({ searchParams }) {
             {/* CHART SECTION */}
             <Card className="col-span-4">
                 <CardHeader>
-                <CardTitle>Orders Overview</CardTitle>
+                    <CardTitle>Orders Overview</CardTitle>
                 </CardHeader>
                 <CardContent className="pl-2">
-                <OrdersOverviewChart data={chartData} />
+                    <OrdersOverviewChart data={chartData} />
                 </CardContent>
             </Card>
 

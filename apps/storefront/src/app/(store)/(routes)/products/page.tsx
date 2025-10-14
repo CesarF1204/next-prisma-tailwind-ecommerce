@@ -3,6 +3,7 @@ import { Heading } from '@/components/native/heading'
 import { Separator } from '@/components/native/separator'
 import prisma from '@/lib/prisma'
 import { isVariableValid } from '@/lib/utils'
+import { slugify } from '@persepolis/slugify'
 
 import {
    ProductSearch,
@@ -35,6 +36,14 @@ export default async function Products({ searchParams }) {
    const orderBy = getOrderBy(sort)
 
    const brands = await prisma.brand.findMany()
+
+   const brandIdsArray = [];
+   for (const brand of brands) {
+      if (brandsArray?.includes(slugify(brand.title))) {
+         brandIdsArray.push(brand.id);
+      }
+   }
+
    const categories = await prisma.category.findMany()
    const products = await prisma.product.findMany({
       where: {
@@ -58,18 +67,9 @@ export default async function Products({ searchParams }) {
                   },
                ],
             },
-            {
-               ...(brand
-                  ? {
-                     brand: {
-                        title: {
-                           in: brandsArray,
-                           mode: 'insensitive',
-                        },
-                     },
-                  }
-                  : {}),
-            },
+            ...(brandIdsArray?.length
+               ? [{ brandId: { in: brandIdsArray } }]
+               : []),
             {
                categories: {
                   some: {
