@@ -74,7 +74,7 @@ export default async function Product({
 
 const ImageColumn = ({ product }) => {
    return (
-      <div className="relative w-full col-span-1">
+      <div className="relative min-h-[50vh] w-full col-span-1">
          <Carousel images={product?.images} />
       </div>
    )
