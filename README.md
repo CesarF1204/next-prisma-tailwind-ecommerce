@@ -51,31 +51,48 @@ You can [read more about environment variables here](https://nextjs.org/docs/bas
 
 ## 🏃‍♂️ Getting Started Locally
 
-Clone the repository.
+#### Clone the repository.
 
 ```bash
-git clone https://github.com/sesto-dev/next-prisma-tailwind-ecommerce
+git clone https://github.com/psyitama/next-prisma-tailwind-ecommerce.git
 ```
 
-Navigate to each folder in the `apps` folder and and set the variables.
+#### Navigate to each folder in the `apps` folder and and set the variables.
 
 ```sh
 cp .env.example .env
 ```
 
-Get all dependencies sorted.
+#### Get all dependencies sorted.
 
 ```sh
 bun install
 ```
 
-Bring your database to life with pushing the database schema.
+#### Bring your database to life with pushing the database schema.
 
 ```bash
 bun run db:push
 ```
 
-```sh
+#### Run the projects
+
+Storefront
+
+```bash
+cd apps/storefront
+```
+
+```bash
+bun run dev
+```
+Admin
+
+```bash
+cd apps/admin
+```
+
+```bash
 bun run dev
 ```
 
