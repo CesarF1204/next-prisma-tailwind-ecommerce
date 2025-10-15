@@ -103,9 +103,7 @@ export default async function Products({ searchParams }) {
             description="Below is a list of products you have in your cart."
          />
          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-            <ProductSearch initialSearch={search} />
             <FilterResetProvider>
-               <PriceRange />
                <CategoriesCombobox
                   initialCategory={category}
                   categories={categories}
@@ -113,8 +111,10 @@ export default async function Products({ searchParams }) {
                <BrandCombobox initialBrand={brand} brands={brands} />
                <SortBy initialData={sort} />
                {/* <AvailableToggle initialData={isAvailable} /> */}
+               <PriceRange />
                <ResetFiltersButton />
             </FilterResetProvider>
+            <ProductSearch initialSearch={search} />
          </div>
          <Separator />
          {isVariableValid(products) ? (

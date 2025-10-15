@@ -494,9 +494,10 @@ export function ResetFiltersButton() {
    }
 
    return (
-      <div className="flex justify-end">
+      <div className="flex justify-start">
          <Button
             variant="outline"
+            disabled={!hasFilters}
             onClick={handleReset}
             className="flex items-center gap-2 rounded-lg transition-colors"
          >
