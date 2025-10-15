@@ -4,6 +4,7 @@ import { Separator } from '@/components/native/separator'
 import prisma from '@/lib/prisma'
 import { isVariableValid } from '@/lib/utils'
 import { slugify } from '@persepolis/slugify'
+import { FilterResetProvider } from '@/state/FilterReset'
 
 import {
    ProductSearch,
@@ -11,6 +12,7 @@ import {
    BrandCombobox,
    CategoriesCombobox,
    SortBy,
+   ResetFiltersButton,
    // AvailableToggle,
 } from './components/options'
 
@@ -100,16 +102,19 @@ export default async function Products({ searchParams }) {
             title="Products"
             description="Below is a list of products you have in your cart."
          />
-         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
+         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
             <ProductSearch initialSearch={search} />
-            <PriceRange />
-            <CategoriesCombobox
-               initialCategory={category}
-               categories={categories}
-            />
-            <BrandCombobox initialBrand={brand} brands={brands} />
-            <SortBy initialData={sort} />
-            {/* <AvailableToggle initialData={isAvailable} /> */}
+            <FilterResetProvider>
+               <PriceRange />
+               <CategoriesCombobox
+                  initialCategory={category}
+                  categories={categories}
+               />
+               <BrandCombobox initialBrand={brand} brands={brands} />
+               <SortBy initialData={sort} />
+               {/* <AvailableToggle initialData={isAvailable} /> */}
+               <ResetFiltersButton />
+            </FilterResetProvider>
          </div>
          <Separator />
          {isVariableValid(products) ? (
