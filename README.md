@@ -54,7 +54,12 @@ You can [read more about environment variables here](https://nextjs.org/docs/bas
 #### Clone the repository.
 
 ```bash
-git clone https://github.com/psyitama/next-prisma-tailwind-ecommerce.git
+git clone https://github.com/CesarF1204/next-prisma-tailwind-ecommerce.git
+```
+
+#### Navigate to my branch: *cesar-francisco-vocalmeet-assessment*
+```bash
+git checkout cesar-francisco-vocalmeet-assessment
 ```
 
 #### Navigate to each folder in the `apps` folder and and set the variables.
